@@ -10,6 +10,12 @@ This architecture is designed to simulate a building management and monitoring s
 - **Deployment**: OpenShift (Kubernetes with Helm charts)
 - **Monitoring & Tracing**: Prometheus, Jaeger, and Grafana
 
+## Big Picture
+🚪 **Concierge** (_🛎️ Lobby_) ➡️ 👣 **Entrance** ➡️ 🚶‍♂️ **Mobility** 
+                                                  ↘️ _🔝 Elevator_
+                                                  ↗️ _📶 Stairs_
+                                          ➡️ 🏢 **Building** (_💽 Database_)
+
 ## Microservices
 
 1. 🛎️ [**Access Microservice (Concierge-App)**](https://github.com/firefighters-sre/concierge-app): Manages the entrance and exit of individuals from the building, ensuring a streamlined flow and security.

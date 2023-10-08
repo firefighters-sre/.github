@@ -1,290 +1,132 @@
-
 # Firefighters SRE
 
-Esta arquitetura é projetada para simular um sistema de gerenciamento e monitoramento de um prédio, onde diferentes microsserviços são responsáveis por monitorar e gerenciar aspectos específicos, como acesso de pessoas, mobilidade (uso de escadas e elevadores), ambiente e segurança do prédio. A ideia é usar este cenário como uma analogia para um ambiente SRE (Site Reliability Engineering), onde diferentes componentes e serviços trabalham juntos para garantir a segurança, eficiência e confiabilidade de um ambiente.
-## Microsserviços
-- 🛎️ Microsserviço de Acesso
-- 🚶‍♂️🔝 Microsserviço de Mobilidade (Escada + Elevador)
-- 🏠 Microsserviço de Prédio (Ambiente + Andar)
-- 🛡️ Microsserviço de Segurança
-## 🛎️ Microsserviço de Acesso
+This architecture is designed to simulate a building management and monitoring system. Various microservices are tasked with monitoring and managing specific aspects, such as people access, mobility (utilization of stairs and elevators), environment, and building security. The setup draws an analogy to a Site Reliability Engineering (SRE) environment, where multiple components collaborate to ensure safety, efficiency, and reliability.
 
-### **Responsabilidade**:
-Gerencia a entrada e saída de pessoas do prédio, garantindo a segurança e organização do fluxo de pessoas.
+## Technology Stack
 
-### **Funcionalidades**:
-#### 1. Registrar Entrada:
-- Captura detalhes da pessoa ao entrar, como nome, hora de entrada e destino.
-- Pode se integrar com sistemas de controle de acesso, como leitores de cartão ou reconhecimento facial.
+- **Microservices Framework**: Quarkus
+- **Messaging Platform**: AMQ Streams (Kafka) and Red Hat Fuse (Apache Camel)
+- **Database**: PostgreSQL (for this example, other databases can be integrated)
+- **Deployment**: OpenShift (Kubernetes with Helm charts)
+- **Monitoring & Tracing**: Prometheus, Jaeger, and Grafana
 
-#### 2. Registrar Saída:
-- Registra a hora de saída da pessoa.
-- Pode ser usado para calcular o tempo de permanência ou para verificar quem ainda está no prédio.
+## Microservices
 
-### **Estrutura de Dados**:
-- **Pessoa**: { id, nome, tipo (visitante/funcionário), contato }
-- **RegistroAcesso**: { registroId, pessoaId, horaEntrada, horaSaída, tipoPessoa, destino }
+1. 🛎️ [**Access Microservice (Concierge-App)**](https://github.com/firefighters-sre/concierge-app): Manages the entrance and exit of individuals from the building, ensuring a streamlined flow and security.
+2. 🚶‍♂️🔝 [**Mobility Microservice (Mobility-App)**](https://github.com/firefighters-sre/mobility-app): Monitors and manages the utilization of stairs and elevators, promoting safety and efficient vertical movement within the building.
+3. 🏠 [**Building Microservice (Building-App)**](https://github.com/firefighters-sre/building-app): Handles information regarding the building, such as temperature, air quality, and floor occupancy. 
+4. 🛡️ **Security Microservice**: Focuses on the overall security of the building, integrating with cameras, alarms, and other security systems. (Further details to be provided)
 
-## 🚶‍♂️🔝 Microsserviço de Mobilidade (Escada + Elevador)
+## Database Structure
 
-### **Responsabilidade**:
-Monitora e gerencia o uso das escadas e elevadores, garantindo a segurança e eficiência na movimentação vertical dentro do prédio.
+The architecture utilizes PostgreSQL as its primary database, managing multiple tables related to access, building floors, and environmental conditions.
 
-### **Funcionalidades**:
-#### 1. Detecção de Movimento nas Escadas:
-- Utiliza sensores para detectar movimento nas escadas.
-- Registra a direção do movimento (subindo ou descendo) e a zona específica da escada.
+### External Area Database
 
-#### 2. Alertas de Segurança nas Escadas:
-- Emite alertas em situações atípicas ou perigosas, como movimento na escada durante um alarme de incêndio.
+This database stores information related to the external area of the building, mainly focusing on tracking people's access to the building.
 
-#### 3. Gerenciamento de Elevadores:
-- Controla a lógica de funcionamento dos elevadores.
-- Responde a solicitações de chamada de elevador e direciona elevadores para os andares solicitados.
-- Monitora a saúde e manutenção dos elevadores.
+**Tables**:
 
-### **Estrutura de Dados**:
-- **LogMovimento**: { logId, hora, local (andar ou zona da escada), direção (subindo/descendo) }
-- **Elevador**: { id, status, andarAtual }
-- **LogElevador**: { logId, elevadorId, hora, andarInicial, andarFinal }
+- **Person**:
+  - **id** (primary key): Unique identifier for each person.
+  - **name**: The name of the person.
+  - **type**: Categorizes the person as a visitor or employee.
+  - **contact**: Contact details for the person (could be a phone number or email).
 
-## 🏠 Microsserviço de Prédio (Ambiente + Andar)
+### SQL Script for External Area Database
 
-### **Responsabilidade**:
-Gerencia informações do prédio, como temperatura, qualidade do ar e ocupação. Também gerencia detalhes específicos de cada andar.
+```sql
+CREATE DATABASE externaldb;
 
-### **Funcionalidades**:
-#### 1. Monitorar Ocupação:
-- Verifica quantas pessoas estão em cada andar.
-- Pode se integrar com sistemas de reserva de sala ou sistemas de segurança para obter dados em tempo real.
+-- Switch to the created database
+\c externaldb;
 
-#### 2. Ajustar Ambiente:
-- Controla a temperatura, iluminação e qualidade do ar.
-- Pode se integrar com sistemas de automação predial.
+-- Create the AccessLog table
+CREATE TABLE AccessLog (
+    recordId SERIAL PRIMARY KEY,
+    personId INT NOT NULL,
+    entryTime TIMESTAMP NOT NULL,
+    exitTime TIMESTAMP,
+    personType VARCHAR(50) CHECK (personType IN ('visitor', 'employee')),
+    destination VARCHAR(255)
+);
 
-#### 3. Monitorar Gases Perigosos:
-- Detecta a presença de gases perigosos, como monóxido de carbono ou gás natural.
-- Emissão de alertas em níveis críticos.
+-- Create the Person table
+CREATE TABLE Person (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) CHECK (type IN ('visitor', 'employee')),
+    contact VARCHAR(255)
+);
+```
 
-#### 4. Monitorar Integridade Estrutural:
-- Utiliza sensores para detectar vibrações ou movimentos estruturais que podem indicar problemas.
-- Emissão de alertas em situações anômalas.
+### Building Database
 
-#### 5. Monitorar Fumaça:
-- Utiliza sensores para detectar a presença de fumaça.
-- Emissão de alertas de incêndio.
+This database focuses on the internal structure of the building, capturing details about individual floors, environmental conditions, and potential security threats.
 
-### **Estrutura de Dados**:
-- **Andar**: { id, númeroAndar, salas, instalações }
-- **Ambiente**: { andarId, temperatura, qualidadeAr, iluminação }
-- **Gases**: { andarId, tipoGás (monóxido de carbono, gás natural, etc.), concentração }
-- **Integridade**: { andarId, tipoEvento (vibração, movimento), intensidade }
-- **Fumaça**: { andarId, densidadeFumaça, tipoFumaça }
+**Tables**:
 
-## 🛡️ Microsserviço de Segurança
+- **FloorData**:
+  - **floor_number** (primary key): Denotes the specific floor within the building.
+  - **people_count**: Tracks the current number of people on the floor.
+  - **structure_quality**: Rates the structural quality on a scale from 1 to 5.
+  - **max_people**: Sets a limit for the maximum number of people allowed on the floor.
+  - **o2_level**: Measures the current oxygen level on the floor.
+  - **co2_level**: Monitors the carbon dioxide level on the floor.
 
-### **Responsabilidade**:
-Monitora a segurança do prédio, integrando-se com câmeras, alarmes e outros sistemas de segurança.
+### SQL Script to Create the Database
 
-### **Funcionalidades**:
-#### 1. Monitorar Câmeras:
-- Acessa feeds em tempo real de câmeras de segurança.
-- Pode detectar movimentos suspeitos ou integrar-se com sistemas de reconhecimento facial.
+```sql
+CREATE DATABASE buildingdb;
 
-#### 2. Gerenciar Alarmes:
-- Ativa ou desativa alarmes.
-- Responde a eventos de segurança, como detecção de fumaça ou intrusão.
+-- Switch to the created database
+\c buildingdb;
 
-### **Estrutura de Dados**:
-- **Câmera**: { id, localização, status }
-- **Alarme**: { id, tipo (incêndio, intruso), status, localização }
-## Banco de Dados
+-- Create the AccessLog table
+CREATE TABLE AccessLog (
+    recordId SERIAL PRIMARY KEY,
+    personId INT NOT NULL,
+    entryTime TIMESTAMP NOT NULL,
+    exitTime TIMESTAMP,
+    personType VARCHAR(50) CHECK (personType IN ('visitor', 'employee')),
+    destination VARCHAR(255)
+);
 
-### 1. Banco de Dados da Área Externa
+-- Create the FloorData table
+CREATE TABLE FloorData (
+    floor_number INT PRIMARY KEY,
+    people_count INT NOT NULL DEFAULT 0,
+    structure_quality INT CHECK (structure_quality BETWEEN 1 AND 5) NOT NULL,
+    max_people INT NOT NULL,
+    o2_level DECIMAL NOT NULL,
+    co2_level DECIMAL NOT NULL
+);
+```
 
-Este banco de dados armazenará informações relacionadas à área externa do prédio.
+## Kafka Topics
 
-**Tabelas:**
-
-- **AccessRecord:**
-  - `recordId` (primary key)
-  - `personId`
-  - `entryTime`
-  - `exitTime`
-  - `personType` (visitor/employee)
-  - `destination` (floor or department)
-
-- **Person:**
-  - `id` (primary key)
-  - `name`
-  - `type` (visitor/employee)
-  - `contact`
-
-- **Floor:**
-  - `id` (primary key)
-  - `floorNumber`
-  - `rooms`
-  - `facilities`
-
-- **Environment:**
-  - `floorId` (foreign key)
-  - `temperature`
-  - `airQuality`
-  - `lighting`
-
-- **StairMovementLog:**
-  - `logId` (primary key)
-  - `time`
-  - `location` (floor or stairwell area)
-  - `direction` (up/down)
-
-- **Camera:**
-  - `id` (primary key)
-  - `location`
-  - `status`
-
-- **Alarm:**
-  - `id` (primary key)
-  - `type` (fire, intruder)
-  - `status`
-  - `location`
-
-- **SecurityLog:**
-  - `logId` (primary key)
-  - `eventType`
-  - `time`
-  - `location`
-  - `description`
-
-## Tópicos Kafka
+The system leverages Kafka for messaging between microservices. Below are the primary topics utilized:
 
 ### 1. Lobby
-Este tópico coleta eventos relacionados às atividades no saguão do prédio, como a entrada e saída de pessoas.
-### 2. Elevador
-Captura eventos associados às operações do elevador, incluindo movimentação entre andares, abertura/fechamento de portas e quaisquer anomalias.
-### 3. Escada
-Reúne dados sobre o uso da escada, monitorando os movimentos dos indivíduos que usam as escadas, quaisquer obstruções e alertas de segurança.
-### 4. Prédio
-Centraliza eventos sobre a saúde e atividades gerais do prédio, englobando métricas ambientais, alertas de segurança e verificações de saúde do sistema.
 
-## Eventos
-### 1. Evento de Entrada
-- **Payload**:
-    ```json
-    {
-      "pessoaId": "12345",
-      "horaEntrada": "2023-09-27T09:00:00Z",
-      "destino": "Andar 5"
-    }
-    ```
-- **Tópico**: `lobby`
-- **Microsserviço Leitor**: Microsserviço de Acesso
+This topic collects events related to activities in the building's lobby, such as the entrance and exit of individuals.
 
-### 2. Evento de Saída
-- **Payload**:
-    ```json
-    {
-      "pessoaId": "12345",
-      "horaSaída": "2023-09-27T17:00:00Z"
-    }
-    ```
-- **Tópico**: `lobby`
-- **Microsserviço Leitor**: Microsserviço de Acesso
+- **Consuming Microservice**: Access Microservice (Concierge-App)
 
-### 3. Evento de Uso de Elevador
-- **Payload**:
-    ```json
-    {
-      "elevadorId": "E1",
-      "horaChamada": "2023-09-27T09:05:00Z",
-      "andarChamada": 1,
-      "destino": 5
-    }
-    ```
-- **Tópico**: `elevador`
-- **Microsserviço Leitor**: Microsserviço de Mobilidade
+### 2. Elevator
 
-### 4. Evento de Uso de Escada
-- **Payload**:
-    ```json
-    {
-      "zonaEscada": "Z1",
-      "horaMovimento": "2023-09-27T09:06:00Z",
-      "direção": "subindo"
-    }
-    ```
-- **Tópico**: `escada`
-- **Microsserviço Leitor**: Microsserviço de Mobilidade
+This topic captures events associated with elevator operations, including movement between floors, door actions, and any anomalies.
 
-### 5. Evento de Alteração Ambiental
-- **Payload**:
-    ```json
-    {
-      "andarId": 5,
-      "temperatura": 23,
-      "qualidadeAr": "boa",
-      "iluminação": "normal"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Microsserviço de Prédio
+- **Consuming Microservice**: Mobility Microservice (Mobility-App)
 
-### 6. Evento de Gás Perigoso
-- **Payload**:
-    ```json
-    {
-      "andarId": 5,
-      "tipoGás": "monóxido de carbono",
-      "concentração": "alto"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Microsserviço de Prédio
+### 3. Stairs
 
-### 7. Evento de Integridade Estrutural
-- **Payload**:
-    ```json
-    {
-      "andarId": 5,
-      "tipoEvento": "vibração",
-      "intensidade": "alta"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Microsserviço de Prédio
+This topic gathers data about the use of stairs, tracking the movement of individuals using the stairs, any obstructions, and security alerts.
 
-### 8. Evento de Fumaça
-- **Payload**:
-    ```json
-    {
-      "andarId": 5,
-      "densidadeFumaça": "alta",
-      "tipoFumaça": "madeira queimada"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Microsserviço de Prédio e Microsserviço de Segurança
+- **Consuming Microservice**: Mobility Microservice (Mobility-App)
 
-### 9. Evento de Alerta de Segurança
-- **Payload**:
-    ```json
-    {
-      "localização": "Andar 5, Sala 501",
-      "horaEvento": "2023-09-27T14:15:00Z",
-      "tipoAlerta": "intruso"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Microsserviço de Segurança
+### 4. Building
 
-### 10. Evento de Falha de Sistema
-- **Payload**:
-    ```json
-    {
-      "sistema": "Microsserviço de Acesso",
-      "horaFalha": "2023-09-27T15:30:00Z",
-      "descrição": "Falha na leitura do cartão de acesso"
-    }
-    ```
-- **Tópico**: `predio`
-- **Microsserviço Leitor**: Equipe de TI ou manutenção
+This topic centralizes events regarding the building's health and general activities. It encompasses environmental metrics, security alerts, and system health checks.
+
+- **Consuming Microservices**: Building Microservice (Building-App) and Security Microservice

@@ -17,6 +17,42 @@ This architecture is designed to simulate a building management and monitoring s
 3. 🏠 [**Building Microservice (Building-App)**](https://github.com/firefighters-sre/building-app): Handles information regarding the building, such as temperature, air quality, and floor occupancy. 
 4. 🛡️ **Security Microservice**: Focuses on the overall security of the building, integrating with cameras, alarms, and other security systems. (Further details to be provided)
 
+## Kafka Topics
+
+The system leverages Kafka for messaging between microservices. Below are the primary topics utilized:
+
+### 1. Lobby
+
+This topic collects events related to activities in the building's lobby, such as the entrance of individuals.
+
+- **Producing Microservice**: External systems or devices.
+- **Consuming Microservice**: Access Microservice (Concierge-App).
+- **Output to**: Entrance Topic.
+
+### 2. Entrance
+
+This topic handles events post-processing from the Lobby, primarily marking individuals' entrance into the building.
+
+- **Producing Microservice**: Access Microservice (Concierge-App).
+- **Consuming Microservice**: Mobility Microservice (Mobility-App).
+- **Output to**: Either Stairs or Elevator Topic.
+
+### 3. Elevator
+
+This topic captures events associated with elevator operations, including movement between floors, door actions, and any anomalies.
+
+- **Producing Microservice**: Mobility Microservice (Mobility-App).
+- **Consuming Microservice**: Building Microservice (Building-App).
+- **Output to**: Database.
+
+### 4. Stairs
+
+This topic gathers data about the use of stairs, tracking the movement of individuals using the stairs.
+
+- **Producing Microservice**: Mobility Microservice (Mobility-App).
+- **Consuming Microservice**: Building Microservice (Building-App).
+- **Output to**: Database.
+
 ## Database Structure
 
 The architecture utilizes PostgreSQL as its primary database, managing multiple tables related to access, building floors, and environmental conditions.
@@ -102,31 +138,3 @@ CREATE TABLE FloorData (
     co2_level DECIMAL NOT NULL
 );
 ```
-
-## Kafka Topics
-
-The system leverages Kafka for messaging between microservices. Below are the primary topics utilized:
-
-### 1. Lobby
-
-This topic collects events related to activities in the building's lobby, such as the entrance and exit of individuals.
-
-- **Consuming Microservice**: Access Microservice (Concierge-App)
-
-### 2. Elevator
-
-This topic captures events associated with elevator operations, including movement between floors, door actions, and any anomalies.
-
-- **Consuming Microservice**: Mobility Microservice (Mobility-App)
-
-### 3. Stairs
-
-This topic gathers data about the use of stairs, tracking the movement of individuals using the stairs, any obstructions, and security alerts.
-
-- **Consuming Microservice**: Mobility Microservice (Mobility-App)
-
-### 4. Building
-
-This topic centralizes events regarding the building's health and general activities. It encompasses environmental metrics, security alerts, and system health checks.
-
-- **Consuming Microservices**: Building Microservice (Building-App) and Security Microservice
